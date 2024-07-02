@@ -1,0 +1,12 @@
+name: Build and push CKAN 2.10 images (alpine)
+
+on: push
+
+jobs:
+  call-reusable-workflow:
+    uses: ./.github/workflows/reusable-docker-publish.yml
+    with:
+      ckan-major-version: "2.10"
+      ckan-version: "2.10.4"
+      base-tags: '["ckan/ckan-base:2.10", "ckan/ckan-base:2.10.4"]'
+      dev-tags: '["ckan/ckan-dev:2.10", "ckan/ckan-dev:2.10.4"]'

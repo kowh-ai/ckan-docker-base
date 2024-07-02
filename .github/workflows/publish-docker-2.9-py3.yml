@@ -1,0 +1,12 @@
+name: Build and push CKAN 2.9 images (python)
+
+on: push
+
+jobs:
+  call-reusable-workflow:
+    uses: ./.github/workflows/reusable-docker-publish.yml
+    with:
+      ckan-major-version: "2.9"
+      ckan-version: "2.9.11"
+      base-tags: '["ckan/ckan-base:2.9-py3.9", "ckan/ckan-base:2.9.11-py3.9"]'
+      dev-tags: '["ckan/ckan-dev:2.9-py3.9", "ckan/ckan-dev:2.9.11-py3.9"]'
