@@ -46,7 +46,8 @@ jobs:
           push: true
           build-args: |
             CKAN_VERSION=${{ inputs.ckan-version }}
-          tags: ${{ fromJson(inputs.base-tags) }}
+          tags: |
+            ${{ fromJson(inputs.base-tags) }}
 
       - name: Build ${{ inputs.ckan-major-version }} dev
         uses: docker/build-push-action@v6
@@ -56,4 +57,5 @@ jobs:
           push: true
           build-args: |
             CKAN_VERSION=${{ inputs.ckan-version }}
-          tags: ${{ fromJson(inputs.dev-tags) }}
+          tags: |
+            ${{ fromJson(inputs.dev-tags) }}
