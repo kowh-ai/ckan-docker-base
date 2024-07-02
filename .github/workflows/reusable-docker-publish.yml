@@ -18,6 +18,7 @@ on:
       docker-file:
         required: false
         default: 'Dockerfile'
+        type: string
 
 jobs:
   build:
