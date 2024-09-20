@@ -51,7 +51,7 @@ jobs:
             com.docker-scout.vcs-ref=${{ github.sha }}
 
       # Step 6: Scan the ckan-base image using Docker Scout
-      - name: Scan ckan-base with Docker Scout
+      - name: Scan ckan-base with Docker Scout BJ
         id: docker-scout
         uses: docker/scout-action@v1
         with:
