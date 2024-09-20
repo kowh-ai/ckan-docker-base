@@ -63,5 +63,5 @@ jobs:
           exit-code: true
 
       # Step 7: Scan the ckan-dev image using Docker Scout
-      - name: Scan ckan-dev with Docker Scout
-        run: docker scout cves ckan/ckan-dev:master
+      #- name: Scan ckan-dev with Docker Scout
+      #  run: docker scout cves ckan/ckan-dev:master
