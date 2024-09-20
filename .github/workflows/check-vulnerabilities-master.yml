@@ -63,7 +63,7 @@ jobs:
           exit-code: '1'
 
       # Step 7: Scan the ckan-dev image using Docker Scout
-      - name: Scan ckan-base with Docker Scout
+      - name: Scan ckan-dev with Docker Scout
         id: docker-scout-dev
         uses: docker/scout-action@v1
         with:
