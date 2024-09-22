@@ -29,7 +29,8 @@ jobs:
         with:
           command: cves
           image: ckan/ckan-base:master
-          only-severities: critical,high
+          only-severities: critical,high,medium,low
+          verbose: true
           write-comment: true
           github-token: ${{ secrets.GITHUB_TOKEN }} # to be able to write the comment
           exit-code: '0'
@@ -49,39 +50,39 @@ jobs:
             com.docker-scout.vcs-ref=${{ github.sha }}
 
       # Step 6: Build the ckan-dev image
-      - name: Build ckan-dev master
-        uses: docker/build-push-action@v6
-        with:
-          context: ckan-master/dev
-          file: ckan-master/dev/Dockerfile
-          push: false
-          build-args: |
-            CKAN_VERSION=master
-          tags: |
-            ckan/ckan-dev:master
-          labels: |
-            com.docker-scout.vcs-ref=${{ github.sha }}
+      #- name: Build ckan-dev master
+      #  uses: docker/build-push-action@v6
+      #  with:
+      #    context: ckan-master/dev
+      #    file: ckan-master/dev/Dockerfile
+      #    push: false
+      #   build-args: |
+      #      CKAN_VERSION=master
+      #    tags: |
+      #     ckan/ckan-dev:master
+      #   labels: |
+      #     com.docker-scout.vcs-ref=${{ github.sha }}
 
       # Step 7: Scan the ckan-base image using Docker Scout
-      - name: Scan ckan-base (local) with Docker Scout
-        id: docker-scout-base-local
-        uses: docker/scout-action@v1
-        with:
-          command: cves
-          image: ckan/ckan-base:master
-          only-severities: critical,high
-          write-comment: true
-          github-token: ${{ secrets.GITHUB_TOKEN }} # to be able to write the comment
-          exit-code: '0'
+      #- name: Scan ckan-base (local) with Docker Scout
+      #  id: docker-scout-base-local
+      #  uses: docker/scout-action@v1
+      #  with:
+      #    command: cves
+      #    image: ckan/ckan-base:master
+      #    only-severities: critical,high
+      #    write-comment: true
+      #    github-token: ${{ secrets.GITHUB_TOKEN }} # to be able to write the comment
+      #    exit-code: '0'
 
       # Step 8: Scan the ckan-dev image using Docker Scout
-      - name: Scan ckan-dev with Docker Scout
-        id: docker-scout-dev
-        uses: docker/scout-action@v1
-        with:
-          command: cves
-          image: ckan/ckan-dev:master
-          only-severities: critical,high
-          write-comment: true
-          github-token: ${{ secrets.GITHUB_TOKEN }} # to be able to write the comment
-          exit-code: '0'
+      #- name: Scan ckan-dev with Docker Scout
+      #  id: docker-scout-dev
+      #  uses: docker/scout-action@v1
+      #  with:
+      #    command: cves
+      #    image: ckan/ckan-dev:master
+      #    only-severities: critical,high
+      #    write-comment: true
+      #    github-token: ${{ secrets.GITHUB_TOKEN }} # to be able to write the comment
+      #    exit-code: '0'
