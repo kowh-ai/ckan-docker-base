@@ -49,6 +49,20 @@ jobs:
           labels: |
             com.docker-scout.vcs-ref=${{ github.sha }}
 
+      # Step 6: Save scan result summary
+      - name: Save scan summary
+        run: |
+          echo "Generating summary for vulnerabilities"
+          cat scout-scan-result.txt | tee scout-summary.txt
+        continue-on-error: true  # Don't fail the workflow if this step fails
+
+      # Step 7: Upload artifact for scan result
+      - name: Upload scan result
+        uses: actions/upload-artifact@v3
+        with:
+          name: scan-summary
+          path: scout-summary.txt
+
       # Step 6: Build the ckan-dev image
       #- name: Build ckan-dev master
       #  uses: docker/build-push-action@v6
