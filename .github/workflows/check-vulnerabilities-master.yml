@@ -1,7 +1,7 @@
 name: Check the vulnerbilities of the master image using Docker Scout
 on:
   schedule:
-    - cron: '1,31, 10,11,12,13,14,15 * * *' # Run every 30 mins, business hours
+    - cron: '1,31, 10,11,12,13,14,15 * * 1,2,3,4,5' # Run every 30 mins, Mon - Fri
 
 jobs:
   docker-scout-scan:
