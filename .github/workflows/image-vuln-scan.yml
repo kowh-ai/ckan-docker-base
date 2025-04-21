@@ -22,7 +22,7 @@ jobs:
             echo "Reports directory does not exist. Creating it now."
             mkdir -p reports
           fi
-          
+
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -97,7 +97,7 @@ jobs:
           trivy image --severity CRITICAL,HIGH ckan/ckan-dev:2.11 >> reports/summary.txt
 
       - name: Upload reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: trivy-reports
           path: reports/
