@@ -22,13 +22,17 @@ jobs:
         id: image-list
         run: |
           echo "IMAGES='ckan/ckan-base:2.11 ckan/ckan-dev:2.11'" >> $GITHUB_ENV
-
+      
       - name: Scan DockerHub images with Trivy
         run: |
+          if [ -z "$IMAGES" ]; then
+            echo "Error: IMAGES variable is empty. Ensure it is defined in the previous step."
+            exit 1
+          fi
           for IMAGE in $IMAGES; do
             SAFE_IMAGE_NAME=$(echo "$IMAGE" | sed 's/[:\/]/_/g')
             trivy image --severity CRITICAL,HIGH --format table --output "reports/${SAFE_IMAGE_NAME}.txt" "$IMAGE"
-          done
+          done  
 
       - name: Combine reports into one
         run: |
