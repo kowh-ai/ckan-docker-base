@@ -87,7 +87,7 @@ jobs:
           trivy image --severity CRITICAL,HIGH ckan/ckan-dev:2.11 >> reports/summary.txt
 
       - name: Upload reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2
         with:
           name: trivy-reports
           path: reports/
