@@ -28,12 +28,12 @@ jobs:
         run: |
           mkdir -p reports
           # Replace image1:tag with your first Docker image
-          trivy image --format json --output reports/image1-scan.json ckan/ckan-base:2.11
+          trivy image --format json --output reports/ckan-2.11base-scan.json ckan/ckan-base:2.11
 
       - name: Scan second image
         run: |
           # Replace image2:tag with your second Docker image
-          trivy image --format json --output reports/image2-scan.json ckan/ckan-dev:2.11
+          trivy image --format json --output reports/ckan-2.11dev-scan.json ckan/ckan-dev:2.11
 
       - name: Generate HTML report
         run: |
@@ -63,12 +63,12 @@ jobs:
             
             <h2>Image 1 Results</h2>
             <pre>
-          $(trivy image --severity CRITICAL,HIGH image1:tag)
+          $(trivy image --severity CRITICAL,HIGH ckan/ckan-base:2.11)
             </pre>
             
             <h2>Image 2 Results</h2>
             <pre>
-          $(trivy image --severity CRITICAL,HIGH image2:tag)
+          $(trivy image --severity CRITICAL,HIGH ckan/ckan-dev:2.11)
             </pre>
             
             <h2>Detailed Reports</h2>
@@ -82,9 +82,9 @@ jobs:
           echo "Trivy Scan Report - $(date)" > reports/summary.txt
           echo "-----------------------------------------" >> reports/summary.txt
           echo -e "\nImage 1 Summary:" >> reports/summary.txt
-          trivy image --severity CRITICAL,HIGH image1:tag >> reports/summary.txt
+          trivy image --severity CRITICAL,HIGH ckan/ckan-base:2.11 >> reports/summary.txt
           echo -e "\nImage 2 Summary:" >> reports/summary.txt
-          trivy image --severity CRITICAL,HIGH image2:tag >> reports/summary.txt
+          trivy image --severity CRITICAL,HIGH ckan/ckan-dev:2.11 >> reports/summary.txt
 
       - name: Send email with results
         uses: dawidd6/action-send-mail@v3
@@ -99,5 +99,5 @@ jobs:
           from: GitHub Actions
           attachments: |
             reports/summary.html
-            reports/image1-scan.json
-            reports/image2-scan.json
+            reports/ckan-2.11base-scan.json
+            reports/ckan-2.11dev-scan.json
