@@ -30,17 +30,17 @@ jobs:
           echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
           sudo apt-get update
           sudo apt-get install -y trivy
-          sudo apt-get install -y jq
 
       - name: Define image list
         id: set-images
         run: |
           # Define the list of images to scan
           echo "IMAGES_TO_SCAN<<EOF" >> $GITHUB_ENV
+          echo "ckan/ckan-base:master" >> $GITHUB_ENV
           echo "ckan/ckan-base:2.11" >> $GITHUB_ENV
           echo "ckan/ckan-dev:2.11" >> $GITHUB_ENV
-          echo "ckan/ckan-solr:2.11" >> $GITHUB_ENV
-          echo "ckan/ckan-postgres:2.11" >> $GITHUB_ENV
+          echo "ckan/ckan-base:2.10-py3.10" >> $GITHUB_ENV
+          echo "ckan/ckan-dev:2.10-py3.10" >> $GITHUB_ENV
           # Add more images as needed
           echo "EOF" >> $GITHUB_ENV
 
@@ -52,416 +52,69 @@ jobs:
             filename=$(echo "$image" | tr '/:' '-')
             echo "Scanning $image..."
             trivy image --format json --output "reports/${filename}-scan.json" "$image"
+            # Also create a text summary for this image
+            echo "Summary for $image:" > "reports/${filename}-summary.txt"
+            trivy image --severity CRITICAL,HIGH "$image" >> "reports/${filename}-summary.txt"
           done <<< "$IMAGES_TO_SCAN"
 
       - name: Generate HTML report
         run: |
-          # Create HTML template file (using contents from the artifact)
-          cat > reports/template.html << 'EOT'
+          cat > reports/summary.html << 'EOF'
           <!DOCTYPE html>
-          <html lang="en">
+          <html>
           <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Docker Image Security Report</title>
+            <title>Trivy Scan Report</title>
             <style>
-              :root {
-                --primary-color: #2c3e50;
-                --secondary-color: #3498db;
-                --critical-color: #e74c3c;
-                --high-color: #f39c12;
-                --medium-color: #f1c40f;
-                --low-color: #2ecc71;
-                --info-color: #95a5a6;
-                --light-bg: #ecf0f1;
-                --white: #ffffff;
-                --dark-text: #34495e;
-              }
-              
-              body {
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                line-height: 1.6;
-                color: var(--dark-text);
-                margin: 0;
-                padding: 0;
-                background-color: var(--light-bg);
-              }
-              
-              .container {
-                max-width: 1200px;
-                margin: 0 auto;
-                padding: 20px;
-              }
-              
-              header {
-                background-color: var(--primary-color);
-                color: var(--white);
-                padding: 20px;
-                text-align: center;
-                border-radius: 8px 8px 0 0;
-                margin-bottom: 20px;
-              }
-              
-              h1 {
-                margin: 0;
-                font-size: 2.2rem;
-              }
-              
-              .scan-date {
-                margin-top: 5px;
-                font-style: italic;
-                opacity: 0.9;
-              }
-              
-              .summary-card {
-                background-color: var(--white);
-                border-radius: 8px;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                padding: 20px;
-                margin-bottom: 20px;
-              }
-              
-              .image-report {
-                background-color: var(--white);
-                border-radius: 8px;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                margin-bottom: 30px;
-                overflow: hidden;
-              }
-              
-              .image-header {
-                background-color: var(--secondary-color);
-                color: var(--white);
-                padding: 15px 20px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-              }
-              
-              .image-name {
-                font-size: 1.2rem;
-                font-weight: bold;
-                margin: 0;
-              }
-              
-              .image-content {
-                padding: 20px;
-              }
-              
-              .vuln-table {
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 10px;
-                font-size: 0.95rem;
-              }
-              
-              .vuln-table th, .vuln-table td {
-                padding: 12px 15px;
-                text-align: left;
-                border-bottom: 1px solid #ddd;
-              }
-              
-              .vuln-table th {
-                background-color: var(--light-bg);
-                font-weight: 600;
-              }
-              
-              .vuln-table tr:hover {
-                background-color: rgba(236, 240, 241, 0.5);
-              }
-              
-              .severity {
-                font-weight: bold;
-                padding: 4px 8px;
-                border-radius: 4px;
-                text-align: center;
-              }
-              
-              .critical {
-                background-color: var(--critical-color);
-                color: white;
-              }
-              
-              .high {
-                background-color: var(--high-color);
-                color: white;
-              }
-              
-              .medium {
-                background-color: var(--medium-color);
-                color: var(--dark-text);
-              }
-              
-              .low {
-                background-color: var(--low-color);
-                color: white;
-              }
-              
-              .info {
-                background-color: var(--info-color);
-                color: white;
-              }
-              
-              .summary-stats {
-                display: flex;
-                flex-wrap: wrap;
-                justify-content: space-around;
-                gap: 15px;
-                margin-bottom: 20px;
-              }
-              
-              .stat-box {
-                text-align: center;
-                padding: 10px 15px;
-                border-radius: 6px;
-                flex: 1;
-                min-width: 100px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-              }
-              
-              .stat-number {
-                font-size: 2rem;
-                font-weight: bold;
-                display: block;
-              }
-              
-              .stat-label {
-                font-size: 0.9rem;
-              }
-              
-              .collapsible {
-                cursor: pointer;
-              }
-              
-              .collapse-icon {
-                margin-left: 10px;
-              }
-              
-              .hidden-content {
-                display: none;
-              }
-              
-              .badge {
-                display: inline-block;
-                padding: 3px 7px;
-                border-radius: 3px;
-                font-size: 0.75rem;
-                margin-left: 5px;
-                background-color: var(--secondary-color);
-                color: white;
-              }
-              
-              .footer {
-                text-align: center;
-                margin-top: 30px;
-                color: var(--dark-text);
-                opacity: 0.8;
-                font-size: 0.9rem;
-              }
-              
-              @media (max-width: 768px) {
-                .summary-stats {
-                  flex-direction: column;
-                }
-                
-                .stat-box {
-                  width: 100%;
-                }
-                
-                .image-header {
-                  flex-direction: column;
-                  align-items: flex-start;
-                }
-                
-                .badge {
-                  margin-top: 5px;
-                  margin-left: 0;
-                }
-              }
+              body { font-family: Arial, sans-serif; margin: 20px; }
+              h1 { color: #333; }
+              h2 { color: #666; margin-top: 30px; }
+              table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+              th, td { border: 1px solid #ddd; padding: 8px; }
+              th { background-color: #f2f2f2; text-align: left; }
+              tr:nth-child(even) { background-color: #f9f9f9; }
+              .critical { background-color: #ffdddd; }
+              .high { background-color: #ffffcc; }
             </style>
           </head>
           <body>
-            <div class="container">
-              <header>
-                <h1>Docker Image Security Report</h1>
-                <div class="scan-date">Generated on {{SCAN_DATE}}</div>
-              </header>
-              
-              <div class="summary-card">
-                <h2>Scan Summary</h2>
-                <p>Security analysis performed on {{IMAGE_COUNT}} Docker images using Trivy vulnerability scanner.</p>
-                
-                <div class="summary-stats">
-                  <div class="stat-box" style="background-color: var(--critical-color); color: white;">
-                    <span class="stat-number">{{CRITICAL_COUNT}}</span>
-                    <span class="stat-label">Critical</span>
-                  </div>
-                  <div class="stat-box" style="background-color: var(--high-color); color: white;">
-                    <span class="stat-number">{{HIGH_COUNT}}</span>
-                    <span class="stat-label">High</span>
-                  </div>
-                  <div class="stat-box" style="background-color: var(--medium-color); color: var(--dark-text);">
-                    <span class="stat-number">{{MEDIUM_COUNT}}</span>
-                    <span class="stat-label">Medium</span>
-                  </div>
-                  <div class="stat-box" style="background-color: var(--low-color); color: white;">
-                    <span class="stat-number">{{LOW_COUNT}}</span>
-                    <span class="stat-label">Low</span>
-                  </div>
-                </div>
-              </div>
-              
-              <!-- Image reports will be generated here dynamically -->
-              {{IMAGE_REPORTS}}
-              
-              <div class="footer">
-                <p>Report generated by Trivy Scanner via GitHub Actions</p>
-              </div>
-            </div>
+            <h1>Trivy Vulnerability Scan Report</h1>
+            <p>Date: $(date)</p>
             
-            <script>
-              // Add interactivity for collapsible sections
-              document.addEventListener('DOMContentLoaded', function() {
-                const collapsibles = document.querySelectorAll('.collapsible');
-                
-                collapsibles.forEach(function(element) {
-                  element.addEventListener('click', function() {
-                    const content = this.nextElementSibling;
-                    const icon = this.querySelector('.collapse-icon');
-                    
-                    if (content.style.display === 'block') {
-                      content.style.display = 'none';
-                      icon.textContent = '▼';
-                    } else {
-                      content.style.display = 'block';
-                      icon.textContent = '▲';
-                    }
-                  });
-                });
-              });
-            </script>
-          </body>
-          </html>
-          EOT
-
-          # Initialize counters
-          TOTAL_CRITICAL=0
-          TOTAL_HIGH=0
-          TOTAL_MEDIUM=0
-          TOTAL_LOW=0
-          IMAGE_COUNT=0
-          IMAGE_REPORTS=""
-
-          # Process each scan result and generate report sections
+            <h2>Summary</h2>
+            <p>This report contains vulnerability scans for multiple Docker images.</p>
+          EOF
+          
+          # Dynamically add results for each image
           while IFS= read -r image; do
             filename=$(echo "$image" | tr '/:' '-')
-            IMAGE_COUNT=$((IMAGE_COUNT + 1))
-            
-            # Parse the JSON report
-            critical_count=$(jq '.Results[] | select(.Vulnerabilities != null) | .Vulnerabilities[] | select(.Severity == "CRITICAL") | .VulnerabilityID' "reports/${filename}-scan.json" | wc -l)
-            high_count=$(jq '.Results[] | select(.Vulnerabilities != null) | .Vulnerabilities[] | select(.Severity == "HIGH") | .VulnerabilityID' "reports/${filename}-scan.json" | wc -l)
-            medium_count=$(jq '.Results[] | select(.Vulnerabilities != null) | .Vulnerabilities[] | select(.Severity == "MEDIUM") | .VulnerabilityID' "reports/${filename}-scan.json" | wc -l)
-            low_count=$(jq '.Results[] | select(.Vulnerabilities != null) | .Vulnerabilities[] | select(.Severity == "LOW") | .VulnerabilityID' "reports/${filename}-scan.json" | wc -l)
-            
-            # Add to totals
-            TOTAL_CRITICAL=$((TOTAL_CRITICAL + critical_count))
-            TOTAL_HIGH=$((TOTAL_HIGH + high_count))
-            TOTAL_MEDIUM=$((TOTAL_MEDIUM + medium_count))
-            TOTAL_LOW=$((TOTAL_LOW + low_count))
-            
-            # Determine header color based on worst severity
-            header_style=""
-            if [ $critical_count -gt 0 ]; then
-              header_style="style=\"background-color: var(--critical-color);\""
-            elif [ $high_count -gt 0 ]; then
-              header_style="style=\"background-color: var(--high-color);\""
-            elif [ $medium_count -gt 0 ]; then
-              header_style="style=\"background-color: var(--medium-color);\""
-            elif [ $low_count -gt 0 ]; then
-              header_style="style=\"background-color: var(--low-color);\""
-            fi
-            
-            # Create vulnerability table
-            vuln_table=""
-            if [ $critical_count -gt 0 ] || [ $high_count -gt 0 ] || [ $medium_count -gt 0 ] || [ $low_count -gt 0 ]; then
-              vuln_table="<table class=\"vuln-table\">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Severity</th>
-                    <th>Package</th>
-                    <th>Current Version</th>
-                    <th>Fixed Version</th>
-                    <th>Title</th>
-                  </tr>
-                </thead>
-                <tbody>"
-              
-              # Add vulnerabilities, starting with critical and high
-              if [ $critical_count -gt 0 ] || [ $high_count -gt 0 ]; then
-                jq -r '.Results[] | select(.Vulnerabilities != null) | .Vulnerabilities[] | select(.Severity == "CRITICAL" or .Severity == "HIGH") | 
-                [.VulnerabilityID, .Severity, .PkgName, .InstalledVersion, .FixedVersion // "Not Fixed", .Title] | 
-                @tsv' "reports/${filename}-scan.json" | while IFS=$'\t' read -r id severity pkg installed fixed title; do
-                  severity_class=$(echo $severity | tr '[:upper:]' '[:lower:]')
-                  vuln_table="${vuln_table}
-                  <tr>
-                    <td><a href=\"https://nvd.nist.gov/vuln/detail/${id}\" target=\"_blank\">${id}</a></td>
-                    <td><span class=\"severity ${severity_class}\">${severity}</span></td>
-                    <td>${pkg}</td>
-                    <td>${installed}</td>
-                    <td>${fixed}</td>
-                    <td>${title}</td>
-                  </tr>"
-                done
-              fi
-              
-              vuln_table="${vuln_table}</tbody></table>"
-            else
-              vuln_table="<p>No vulnerabilities found.</p>"
-            fi
-            
-            # Build image report section
-            image_report="<div class=\"image-report\">
-              <div class=\"image-header\" ${header_style}>
-                <h3 class=\"image-name\">${image}</h3>
-                <div>
-                  <span class=\"badge\">Critical: ${critical_count}</span>
-                  <span class=\"badge\">High: ${high_count}</span>
-                  <span class=\"badge\">Medium: ${medium_count}</span>
-                  <span class=\"badge\">Low: ${low_count}</span>
-                </div>
-              </div>
-              <div class=\"image-content\">
-                <h4 class=\"collapsible\">Vulnerabilities <span class=\"collapse-icon\">▼</span></h4>
-                <div class=\"hidden-content\" style=\"display: none;\">
-                  ${vuln_table}
-                </div>
-              </div>
-            </div>"
-            
-            IMAGE_REPORTS="${IMAGE_REPORTS}${image_report}"
-            
+            echo "<h2>Results for $image</h2>" >> reports/summary.html
+            echo "<pre>" >> reports/summary.html
+            trivy image --severity CRITICAL,HIGH "$image" >> reports/summary.html
+            echo "</pre>" >> reports/summary.html
           done <<< "$IMAGES_TO_SCAN"
           
-          # Generate the final HTML report with all the data
-          scan_date=$(date)
+          # Close the HTML
+          cat >> reports/summary.html << 'EOF'  
+            <h2>Detailed Reports</h2>
+            <p>See the attached JSON files for detailed reports.</p>
+          </body>
+          </html>
+          EOF
+
+      - name: Generate text summary
+        run: |
+          echo "Trivy Scan Report - $(date)" > reports/summary.txt
+          echo "-----------------------------------------" >> reports/summary.txt
           
-          # Replace variables in the template
-          sed -e "s/{{SCAN_DATE}}/${scan_date}/g" \
-              -e "s/{{IMAGE_COUNT}}/${IMAGE_COUNT}/g" \
-              -e "s/{{CRITICAL_COUNT}}/${TOTAL_CRITICAL}/g" \
-              -e "s/{{HIGH_COUNT}}/${TOTAL_HIGH}/g" \
-              -e "s/{{MEDIUM_COUNT}}/${TOTAL_MEDIUM}/g" \
-              -e "s/{{LOW_COUNT}}/${TOTAL_LOW}/g" \
-              -e "s|{{IMAGE_REPORTS}}|${IMAGE_REPORTS}|g" \
-              reports/template.html > reports/security-report.html
-          
-          # Clean up the template
-          rm reports/template.html
+          # Add summaries for each image
+          while IFS= read -r image; do
+            echo -e "\nSummary for $image:" >> reports/summary.txt
+            trivy image --severity CRITICAL,HIGH "$image" >> reports/summary.txt
+          done <<< "$IMAGES_TO_SCAN"
 
       - name: Upload reports
         uses: actions/upload-artifact@v4
         with:
           name: trivy-reports
           path: reports/
-          retention-days: 7
+          retention-days: 3
