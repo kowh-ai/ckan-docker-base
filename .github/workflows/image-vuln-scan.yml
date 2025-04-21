@@ -13,6 +13,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
+      - name: Check reports directory
+        run: |
+          if [ -d "reports" ]; then
+            echo "Reports directory exists."
+          else
+            echo "Reports directory does not exist. Creating it now."
+            mkdir -p reports
+          fi
+          
       - name: Checkout code
         uses: actions/checkout@v3
 
