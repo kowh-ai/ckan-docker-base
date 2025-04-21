@@ -25,9 +25,9 @@ jobs:
 
       - name: Scan DockerHub images with Trivy
         run: |
-          for IMAGE in ${{ env.IMAGES }}; do
-            SAFE_IMAGE_NAME=$(echo $IMAGE | sed 's/[:\/]/_/g')
-            trivy image --severity CRITICAL,HIGH --format table --output "reports/${SAFE_IMAGE_NAME}.txt" $IMAGE
+          for IMAGE in $IMAGES; do
+            SAFE_IMAGE_NAME=$(echo "$IMAGE" | sed 's/[:\/]/_/g')
+            trivy image --severity CRITICAL,HIGH --format table --output "reports/${SAFE_IMAGE_NAME}.txt" "$IMAGE"
           done
 
       - name: Combine reports into one
