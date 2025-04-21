@@ -86,19 +86,10 @@ jobs:
           echo -e "\nImage 2 Summary:" >> reports/summary.txt
           trivy image --severity CRITICAL,HIGH ckan/ckan-dev:2.11 >> reports/summary.txt
 
-      - name: Send email with results
-        uses: dawidd6/action-send-mail@v3
+      - name: Upload reports
+        uses: actions/upload-artifact@v3
         with:
-          server_address: smtp.elasticemail.com
-          server_port: 2525
-          #secure: true
-          #username: ${{ secrets.EMAIL_USERNAME }}
-          #password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: Docker Image Vulnerability Scan Results
-          body: file://reports/summary.txt
-          to: brett@kowh.ai  # Replace with your email address
-          from: GitHub Actions
-          attachments: |
-            reports/summary.html
-            reports/ckan-2.11base-scan.json
-            reports/ckan-2.11dev-scan.json
+          name: trivy-reports
+          path: reports/
+          retention-days: 7
+          # This will upload the reports directory as an artifact
