@@ -21,11 +21,11 @@ jobs:
       - name: Define DockerHub images to scan
         id: image-list
         run: |
-          echo "IMAGES=ckan/ckan-base:2.11 ckan/ckan-dev:2.11" >> $GITHUB_ENV
+          echo "IMAGES='ckan/ckan-base:2.11 ckan/ckan-dev:2.11'" >> $GITHUB_ENV
 
       - name: Scan DockerHub images with Trivy
         run: |
-          for IMAGE in $IMAGES; do
+          for IMAGE in ${{ env.IMAGES }}; do
             SAFE_IMAGE_NAME=$(echo $IMAGE | sed 's/[:\/]/_/g')
             trivy image --severity CRITICAL,HIGH --format table --output "reports/${SAFE_IMAGE_NAME}.txt" $IMAGE
           done
