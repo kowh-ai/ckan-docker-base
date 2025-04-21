@@ -1,4 +1,7 @@
-name: Trivy Image Scanning
+name: CKAN Image Scanning with Trivy
+description: |
+  This workflow scans Docker images for vulnerabilities using Trivy.
+  It runs on a schedule and can also be triggered manually. 
 
 on:
   schedule:
@@ -9,22 +12,16 @@ on:
 
 jobs:
   scan:
-    name: Scan Docker Images with Trivy
+    name: Scan CKAN Docker Images with Trivy
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Check reports directory
         run: |
-          if [ -d "reports" ]; then
-            echo "Reports directory exists."
-          else
-            echo "Reports directory does not exist. Creating it now."
-            mkdir -p reports
-          fi
-
-      - name: Checkout code
-        uses: actions/checkout@v3
+          mkdir -p reports
 
       - name: Set up Trivy
         run: |
@@ -34,20 +31,35 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y trivy
 
-      - name: Scan first image
+      - name: Define image list
+        id: set-images
         run: |
-          mkdir -p reports
-          # Replace image1:tag with your first Docker image
-          trivy image --format json --output reports/ckan-2.11base-scan.json ckan/ckan-base:2.11
+          # Define the list of images to scan
+          echo "IMAGES_TO_SCAN<<EOF" >> $GITHUB_ENV
+          echo "ckan/ckan-base:master" >> $GITHUB_ENV
+          echo "ckan/ckan-base:2.11" >> $GITHUB_ENV
+          echo "ckan/ckan-dev:2.11" >> $GITHUB_ENV
+          echo "ckan/ckan-base:2.10-py3.10" >> $GITHUB_ENV
+          echo "ckan/ckan-dev:2.10-py3.10" >> $GITHUB_ENV
+          # Add more images as needed
+          echo "EOF" >> $GITHUB_ENV
 
-      - name: Scan second image
+      - name: Scan images
         run: |
-          # Replace image2:tag with your second Docker image
-          trivy image --format json --output reports/ckan-2.11dev-scan.json ckan/ckan-dev:2.11
+          # Read the images line by line and scan each one
+          while IFS= read -r image; do
+            # Create a safe filename by replacing slashes and colons
+            filename=$(echo "$image" | tr '/:' '-')
+            echo "Scanning $image..."
+            trivy image --format json --output "reports/${filename}-scan.json" "$image"
+            # Also create a text summary for this image
+            echo "Summary for $image:" > "reports/${filename}-summary.txt"
+            trivy image --severity CRITICAL,HIGH "$image" >> "reports/${filename}-summary.txt"
+          done <<< "$IMAGES_TO_SCAN"
 
       - name: Generate HTML report
         run: |
-          cat > reports/summary.html << EOF
+          cat > reports/summary.html << 'EOF'
           <!DOCTYPE html>
           <html>
           <head>
@@ -69,18 +81,20 @@ jobs:
             <p>Date: $(date)</p>
             
             <h2>Summary</h2>
-            <p>This report contains vulnerability scans for two Docker images.</p>
-            
-            <h2>Image 1 Results</h2>
-            <pre>
-          $(trivy image --severity CRITICAL,HIGH ckan/ckan-base:2.11)
-            </pre>
-            
-            <h2>Image 2 Results</h2>
-            <pre>
-          $(trivy image --severity CRITICAL,HIGH ckan/ckan-dev:2.11)
-            </pre>
-            
+            <p>This report contains vulnerability scans for multiple Docker images.</p>
+          EOF
+          
+          # Dynamically add results for each image
+          while IFS= read -r image; do
+            filename=$(echo "$image" | tr '/:' '-')
+            echo "<h2>Results for $image</h2>" >> reports/summary.html
+            echo "<pre>" >> reports/summary.html
+            trivy image --severity CRITICAL,HIGH "$image" >> reports/summary.html
+            echo "</pre>" >> reports/summary.html
+          done <<< "$IMAGES_TO_SCAN"
+          
+          # Close the HTML
+          cat >> reports/summary.html << 'EOF'  
             <h2>Detailed Reports</h2>
             <p>See the attached JSON files for detailed reports.</p>
           </body>
@@ -91,15 +105,16 @@ jobs:
         run: |
           echo "Trivy Scan Report - $(date)" > reports/summary.txt
           echo "-----------------------------------------" >> reports/summary.txt
-          echo -e "\nImage 1 Summary:" >> reports/summary.txt
-          trivy image --severity CRITICAL,HIGH ckan/ckan-base:2.11 >> reports/summary.txt
-          echo -e "\nImage 2 Summary:" >> reports/summary.txt
-          trivy image --severity CRITICAL,HIGH ckan/ckan-dev:2.11 >> reports/summary.txt
+          
+          # Add summaries for each image
+          while IFS= read -r image; do
+            echo -e "\nSummary for $image:" >> reports/summary.txt
+            trivy image --severity CRITICAL,HIGH "$image" >> reports/summary.txt
+          done <<< "$IMAGES_TO_SCAN"
 
       - name: Upload reports
         uses: actions/upload-artifact@v4
         with:
           name: trivy-reports
           path: reports/
-          retention-days: 7
-          # This will upload the reports directory as an artifact
+          retention-days: 3
