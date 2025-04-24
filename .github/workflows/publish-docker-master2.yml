@@ -3,6 +3,8 @@ name: Build and push the master images
 on:
   schedule:
     - cron: "15 5 * * *"
+  workflow_dispatch:
+      # Allows manual triggering of the workflow
 
 jobs:
   call-reusable-workflow:
