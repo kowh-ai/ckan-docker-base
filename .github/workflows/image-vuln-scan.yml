@@ -63,7 +63,7 @@ jobs:
           <!DOCTYPE html>
           <html>
           <head>
-            <title>Trivy Scan Report</title>
+            <title>CKAN Imgaes Scan Report using Trivy</title>
             <style>
               body { font-family: Arial, sans-serif; margin: 20px; }
               h1 { color: #333; }
