@@ -35,7 +35,7 @@ jobs:
           args: --file=Dockerfile --json-file-output=reports/${{ matrix.image }}.json
 
       - name: Create reports directory
-        run: mkdir -p reports
+        run: mkdir -p reports/ckan/
 
       - name: Process Snyk results
         run: |
