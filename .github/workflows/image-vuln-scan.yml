@@ -18,6 +18,9 @@ jobs:
       fail-fast: false  # Continue scanning even if one scan fails
 
     steps:
+      - name: Create reports directory
+        run: mkdir -p reports/ckan/
+
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -33,9 +36,6 @@ jobs:
         with:
           image: ${{ matrix.image }}
           args: --file=Dockerfile --json-file-output=reports/${{ matrix.image }}.json
-
-      - name: Create reports directory
-        run: mkdir -p reports/ckan/
 
       - name: Process Snyk results
         run: |
@@ -63,7 +63,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: vulnerability-report-${{ matrix.image }}
-          path: reports/
+          path: |
+            reports/${{ matrix.image }} | sed 's/:/./g'
           retention-days: 7
 
   summary-report:
