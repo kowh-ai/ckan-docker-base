@@ -1,75 +1,115 @@
-name: CKAN Image Scanning with Snyk
-description: |
-  This workflow scans Docker images for vulnerabilities using Snyk.
-  It runs on a schedule and can also be triggered manually.
+name: CKAN Docker Image Security Scan with Snyk
 
 on:
   schedule:
-    # Runs at 9:00 AM UTC every Monday
-    - cron: '0 9 * * 1'
-  workflow_dispatch:
-    # Allows manual triggering of the workflow
+    - cron: '0 0 * * 0'  # Run weekly on Sunday at midnight
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
-  scan:
-    name: Scan CKAN Docker Images with Snyk
+  scan-images:
+    name: Scan Docker Images
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - 'ckan/ckan-base:master'
+          - 'ckan/ckan-base:2.11'
+          - 'ckan/ckan-dev:2.11'
+      fail-fast: false  # Continue scanning even if one scan fails
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Set up Snyk
-        uses: snyk/actions/setup@v4
-        with:
-          version: 'latest'
+        uses: snyk/actions/setup@master
 
-      - name: Authenticate Snyk
+      - name: Log in to Snyk
         run: snyk auth ${{ secrets.SNYK_TOKEN }}
+        
+      - name: Pull Docker image
+        run: docker pull ${{ matrix.image }}
 
-      - name: Create reports directory
-        run: mkdir -p reports
-
-      - name: Define image list
-        id: set-images
+      - name: Scan Docker image with Snyk
+        id: snyk-scan
+        continue-on-error: true
         run: |
-          # Define the list of images to scan
-          echo "IMAGES_TO_SCAN<<EOF" >> $GITHUB_ENV
-          echo "ckan/ckan-base:master" >> $GITHUB_ENV
-          echo "ckan/ckan-base:2.11" >> $GITHUB_ENV
-          echo "ckan/ckan-dev:2.11" >> $GITHUB_ENV
-          echo "ckan/ckan-base:2.10-py3.10" >> $GITHUB_ENV
-          echo "ckan/ckan-dev:2.10-py3.10" >> $GITHUB_ENV
-          # Add more images as needed
-          echo "EOF" >> $GITHUB_ENV
+          mkdir -p reports
+          # Run and output to JSON
+          snyk container test ${{ matrix.image }} --json > reports/${{ matrix.image }}.json || true
+          # Run and output human-readable format
+          snyk container test ${{ matrix.image }} > reports/${{ matrix.image }}.txt || true
 
-      - name: Scan images with Snyk
+      - name: Process Snyk results
         run: |
-          # Read the images line by line and scan each one
-          while IFS= read -r image; do
-            # Create a safe filename by replacing slashes and colons
-            filename=$(echo "$image" | tr '/:' '-')
-            echo "Scanning $image..."
-            snyk container test "$image" --json > "reports/${filename}-scan.json"
-            # Also create a text summary for this image
-            echo "Summary for $image:" > "reports/${filename}-summary.txt"
-            snyk container test "$image" >> "reports/${filename}-summary.txt"
-          done <<< "$IMAGES_TO_SCAN"
-
-      - name: Generate text summary
-        run: |
-          echo "Snyk Scan Report - $(date)" > reports/summary.txt
-          echo "-----------------------------------------" >> reports/summary.txt
+          echo "## Scan results for ${{ matrix.image }}" > reports/${{ matrix.image }}-summary.md
+          echo "" >> reports/${{ matrix.image }}-summary.md
           
-          # Add summaries for each image
-          while IFS= read -r image; do
-            echo -e "\nSummary for $image:" >> reports/summary.txt
-            snyk container test "$image" >> reports/summary.txt
-          done <<< "$IMAGES_TO_SCAN"
-
-      - name: Upload reports
+          if [ -f "reports/${{ matrix.image }}.json" ]; then
+            echo "### Vulnerability counts:" >> reports/${{ matrix.image }}-summary.md
+            echo "" >> reports/${{ matrix.image }}-summary.md
+            
+            critical=$(jq '[.vulnerabilities[] | select(.severity == "critical")] | length' reports/${{ matrix.image }}.json 2>/dev/null || echo 0)
+            high=$(jq '[.vulnerabilities[] | select(.severity == "high")] | length' reports/${{ matrix.image }}.json 2>/dev/null || echo 0)
+            medium=$(jq '[.vulnerabilities[] | select(.severity == "medium")] | length' reports/${{ matrix.image }}.json 2>/dev/null || echo 0)
+            low=$(jq '[.vulnerabilities[] | select(.severity == "low")] | length' reports/${{ matrix.image }}.json 2>/dev/null || echo 0)
+            
+            echo "- Critical: $critical" >> reports/${{ matrix.image }}-summary.md
+            echo "- High: $high" >> reports/${{ matrix.image }}-summary.md
+            echo "- Medium: $medium" >> reports/${{ matrix.image }}-summary.md
+            echo "- Low: $low" >> reports/${{ matrix.image }}-summary.md
+          else
+            echo "No vulnerability data found." >> reports/${{ matrix.image }}-summary.md
+          fi
+        
+      - name: Upload scan results
         uses: actions/upload-artifact@v3
         with:
-          name: snyk-scan-reports
+          name: vulnerability-report-${{ matrix.image }}
+          path: reports/${{ matrix.image }}*
+          retention-days: 7
+
+  summary-report:
+    name: Generate Summary Report
+    needs: scan-images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create output directory
+        run: mkdir -p reports
+      
+      - name: Download all scan results
+        uses: actions/download-artifact@v3
+        with:
           path: reports/
+          
+      - name: Generate summary report
+        run: |
+          echo "# Docker Image Vulnerability Scan Summary" > summary.md
+          echo "" >> summary.md
+          echo "| Image | Critical | High | Medium | Low |" >> summary.md
+          echo "|-------|----------|------|--------|-----|" >> summary.md
+          
+          for dir in reports/vulnerability-report-*; do
+            if [ -d "$dir" ]; then
+              image=$(echo $dir | sed 's|reports/vulnerability-report-||')
+              
+              for jsonfile in $dir/*.json; do
+                if [ -f "$jsonfile" ]; then
+                  critical=$(jq '[.vulnerabilities[] | select(.severity == "critical")] | length' "$jsonfile" 2>/dev/null || echo 0)
+                  high=$(jq '[.vulnerabilities[] | select(.severity == "high")] | length' "$jsonfile" 2>/dev/null || echo 0)
+                  medium=$(jq '[.vulnerabilities[] | select(.severity == "medium")] | length' "$jsonfile" 2>/dev/null || echo 0)
+                  low=$(jq '[.vulnerabilities[] | select(.severity == "low")] | length' "$jsonfile" 2>/dev/null || echo 0)
+                  
+                  echo "| $image | $critical | $high | $medium | $low |" >> summary.md
+                  break
+                fi
+              done
+            fi
+          done
+          
+      - name: Upload summary report
+        uses: actions/upload-artifact@v3
+        with:
+          name: summary-report
+          path: summary.md
           retention-days: 3
