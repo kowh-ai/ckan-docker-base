@@ -60,6 +60,16 @@ jobs:
             echo "- High: $high" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
             echo "- Medium: $medium" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
             echo "- Low: $low" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+          
+          # Add descriptions for critical vulnerabilities
+            echo "" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            echo "### Critical Vulnerabilities:" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            jq -r '[.vulnerabilities[] | select(.severity == "critical")] | .[] | "- " + .title + ": " + .description' reports/${{ steps.safe-filename.outputs.safe_name }}.json >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md 2>/dev/null || echo "None" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+
+            # Add descriptions for high vulnerabilities
+            echo "" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            echo "### High Vulnerabilities:" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            jq -r '[.vulnerabilities[] | select(.severity == "high")] | .[] | "- " + .title + ": " + .description' reports/${{ steps.safe-filename.outputs.safe_name }}.json >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md 2>/dev/null || echo "None" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
           else
             echo "No vulnerability data found for ${{ matrix.image }}." > reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
           fi
