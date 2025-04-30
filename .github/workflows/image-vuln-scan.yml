@@ -35,7 +35,7 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: ${{ matrix.image }}
-          args: --file=Dockerfile --json-file-output=reports/${{ steps.safe-filename.outputs.safe_name }}.json
+          args: --json-file-output=reports/${{ steps.safe-filename.outputs.safe_name }}.json
 
       - name: Pull Docker image
         run: docker pull ${{ matrix.image }}
@@ -45,22 +45,22 @@ jobs:
           mkdir -p reports
           if [ -f "reports/${{ matrix.image }}.json" ]; then
             # Create human-readable report
-            echo "## Scan results for ${{ matrix.image }}" > reports/${{ matrix.image }}-summary.md
-            echo "" >> reports/${{ matrix.image }}-summary.md
-            echo "### Vulnerability counts:" >> reports/${{ matrix.image }}-summary.md
-            echo "" >> reports/${{ matrix.image }}-summary.md
+            echo "## Scan results for ${{ matrix.image }}" > reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            echo "" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            echo "### Vulnerability counts:" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            echo "" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
             
-            critical=$(jq '[.vulnerabilities[] | select(.severity == "critical")] | length' reports/${{ matrix.image }}.json 2>/dev/null || echo 0)
-            high=$(jq '[.vulnerabilities[] | select(.severity == "high")] | length' reports/${{ matrix.image }}.json 2>/dev/null || echo 0)
-            medium=$(jq '[.vulnerabilities[] | select(.severity == "medium")] | length' reports/${{ matrix.image }}.json 2>/dev/null || echo 0)
-            low=$(jq '[.vulnerabilities[] | select(.severity == "low")] | length' reports/${{ matrix.image }}.json 2>/dev/null || echo 0)
+            critical=$(jq '[.vulnerabilities[] | select(.severity == "critical")] | length' reports/${{ steps.safe-filename.outputs.safe_name }}.json 2>/dev/null || echo 0)
+            high=$(jq '[.vulnerabilities[] | select(.severity == "high")] | length' reports/${{ steps.safe-filename.outputs.safe_name }}.json 2>/dev/null || echo 0)
+            medium=$(jq '[.vulnerabilities[] | select(.severity == "medium")] | length' reports/${{ steps.safe-filename.outputs.safe_name }}.json 2>/dev/null || echo 0)
+            low=$(jq '[.vulnerabilities[] | select(.severity == "low")] | length' reports/${{ steps.safe-filename.outputs.safe_name }}.json 2>/dev/null || echo 0)
             
-            echo "- Critical: $critical" >> reports/${{ matrix.image }}-summary.md
-            echo "- High: $high" >> reports/${{ matrix.image }}-summary.md
-            echo "- Medium: $medium" >> reports/${{ matrix.image }}-summary.md
-            echo "- Low: $low" >> reports/${{ matrix.image }}-summary.md
+            echo "- Critical: $critical" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            echo "- High: $high" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            echo "- Medium: $medium" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            echo "- Low: $low" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
           else
-            echo "No vulnerability data found for ${{ matrix.image }}." > reports/${{ matrix.image }}-summary.md
+            echo "No vulnerability data found for ${{ matrix.image }}." > reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
           fi
         
       - name: Upload scan results
