@@ -18,14 +18,14 @@ jobs:
       fail-fast: false  # Continue scanning even if one scan fails
 
     steps:
-      - name: Create reports directory
-        run: mkdir -p reports/ckan/
-
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Pull Docker image
-        run: docker pull ${{ matrix.image }}
+      - name: Set safe filename
+        id: safe-filename
+        run: |
+          SAFE_NAME=$(echo "${{ matrix.image }}" | tr '/:' '_-')
+          echo "safe_name=$SAFE_NAME" >> $GITHUB_OUTPUT
 
       - name: Run Snyk to scan Docker image
         uses: snyk/actions/docker@master
@@ -35,10 +35,14 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: ${{ matrix.image }}
-          args: --file=Dockerfile --json-file-output=reports/${{ matrix.image }}.json
+          args: --file=Dockerfile --json-file-output=reports/${{ steps.safe-filename.outputs.safe_name }}.json
 
-      - name: Process Snyk results
+      - name: Pull Docker image
+        run: docker pull ${{ matrix.image }}
+
+      - name: Create reports directory
         run: |
+          mkdir -p reports
           if [ -f "reports/${{ matrix.image }}.json" ]; then
             # Create human-readable report
             echo "## Scan results for ${{ matrix.image }}" > reports/${{ matrix.image }}-summary.md
@@ -60,11 +64,10 @@ jobs:
           fi
         
       - name: Upload scan results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
-          name: vulnerability-report-${{ matrix.image }}
-          path: |
-            reports/${{ matrix.image }} | sed 's/:/./g'
+          name: vulnerability-report-${{ steps.safe-filename.outputs.safe_name }}
+          path: reports/
           retention-days: 7
 
   summary-report:
@@ -76,7 +79,7 @@ jobs:
         run: mkdir -p reports
       
       - name: Download all scan results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v3
         with:
           path: reports/
           
@@ -89,8 +92,16 @@ jobs:
           
           find reports -name "*.json" | while read jsonfile; do
             if [ -f "$jsonfile" ]; then
-              # Extract image name from path
-              image=$(basename $(dirname $jsonfile) | sed 's|vulnerability-report-||')
+              # Extract safe filename from path
+              safe_name=$(basename "$jsonfile" .json)
+              
+              # Get original image name for display (from the summary file)
+              summary_file=$(dirname "$jsonfile")/"$safe_name"-summary.md
+              if [ -f "$summary_file" ]; then
+                image=$(head -n 1 "$summary_file" | sed 's/## Scan results for //')
+              else
+                image=$safe_name
+              fi
               
               critical=$(jq '[.vulnerabilities[] | select(.severity == "critical")] | length' "$jsonfile" 2>/dev/null || echo 0)
               high=$(jq '[.vulnerabilities[] | select(.severity == "high")] | length' "$jsonfile" 2>/dev/null || echo 0)
@@ -102,7 +113,7 @@ jobs:
           done
           
       - name: Upload summary report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: summary-report
           path: summary.md
