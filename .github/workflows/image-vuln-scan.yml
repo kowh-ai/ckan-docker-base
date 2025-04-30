@@ -43,8 +43,8 @@ jobs:
       - name: Create reports directory
         run: |
           mkdir -p reports
-          chmod -R 777 reports
-          if [ -f "reports/${{ matrix.image }}.json" ]; then
+          sudo chmod -R 777 reports
+          if [ -f "reports/${{ steps.safe-filename.outputs.safe_name }}.json" ]; then
             # Create human-readable report
             echo "## Scan results for ${{ matrix.image }}" > reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
             echo "" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
