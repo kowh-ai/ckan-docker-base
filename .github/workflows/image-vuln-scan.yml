@@ -35,7 +35,7 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: ${{ matrix.image }}
-          args: --json-file-output=reports/${{ steps.safe-filename.outputs.safe_name }}.json
+          args: --report --json-file-output=reports/${{ steps.safe-filename.outputs.safe_name }}.json
 
       - name: Pull Docker image
         run: docker pull ${{ matrix.image }}
@@ -61,7 +61,7 @@ jobs:
             echo "- Medium: $medium" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
             echo "- Low: $low" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
           
-          # Add descriptions for critical vulnerabilities
+            # Add descriptions for critical vulnerabilities
             echo "" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
             echo "### Critical Vulnerabilities:" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
             jq -r '[.vulnerabilities[] | select(.severity == "critical")] | .[] | "- " + .title + ": " + .description' reports/${{ steps.safe-filename.outputs.safe_name }}.json >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md 2>/dev/null || echo "None" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
