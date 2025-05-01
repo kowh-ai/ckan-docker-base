@@ -1,0 +1,131 @@
+name: CKAN Docker Image Security Scan with Snyk
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Run weekly on Sunday at midnight
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  scan-images:
+    name: Scan Docker Images
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - 'ckan/ckan-base:master'
+          - 'ckan/ckan-base:2.11'
+          - 'ckan/ckan-dev:2.11'
+      fail-fast: false  # Continue scanning even if one scan fails
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set safe filename
+        id: safe-filename
+        run: |
+          SAFE_NAME=$(echo "${{ matrix.image }}" | tr '/:' '_-')
+          echo "safe_name=$SAFE_NAME" >> $GITHUB_OUTPUT
+
+      - name: Run Snyk to scan Docker image
+        uses: snyk/actions/docker@master
+        id: snyk-scan
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: ${{ matrix.image }}
+          args: --report --org=kowh-ai  --project-name=${{ matrix.image }} --json-file-output=reports/${{ steps.safe-filename.outputs.safe_name }}.json
+
+      - name: Pull Docker image
+        run: docker pull ${{ matrix.image }}
+
+      - name: Create reports directory
+        run: |
+          mkdir -p reports
+          sudo chmod -R 777 reports
+          if [ -f "reports/${{ steps.safe-filename.outputs.safe_name }}.json" ]; then
+            # Create human-readable report
+            echo "## Scan results for ${{ matrix.image }}" > reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            echo "" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            echo "### Vulnerability counts:" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            echo "" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            
+            critical=$(jq '[.vulnerabilities[] | select(.severity == "critical")] | length' reports/${{ steps.safe-filename.outputs.safe_name }}.json 2>/dev/null || echo 0)
+            high=$(jq '[.vulnerabilities[] | select(.severity == "high")] | length' reports/${{ steps.safe-filename.outputs.safe_name }}.json 2>/dev/null || echo 0)
+            medium=$(jq '[.vulnerabilities[] | select(.severity == "medium")] | length' reports/${{ steps.safe-filename.outputs.safe_name }}.json 2>/dev/null || echo 0)
+            low=$(jq '[.vulnerabilities[] | select(.severity == "low")] | length' reports/${{ steps.safe-filename.outputs.safe_name }}.json 2>/dev/null || echo 0)
+            
+            echo "- Critical: $critical" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            echo "- High: $high" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            echo "- Medium: $medium" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            echo "- Low: $low" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+          
+            # Add descriptions for critical vulnerabilities
+            echo "" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            echo "### Critical Vulnerabilities:" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            jq -r '[.vulnerabilities[] | select(.severity == "critical")] | .[] | "- " + .title + ": " + .description' reports/${{ steps.safe-filename.outputs.safe_name }}.json >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md 2>/dev/null || echo "None" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+
+            # Add descriptions for high vulnerabilities
+            echo "" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            echo "### High Vulnerabilities:" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+            jq -r '[.vulnerabilities[] | select(.severity == "high")] | .[] | "- " + .title + ": " + .description' reports/${{ steps.safe-filename.outputs.safe_name }}.json >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md 2>/dev/null || echo "None" >> reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+          else
+            echo "No vulnerability data found for ${{ matrix.image }}." > reports/${{ steps.safe-filename.outputs.safe_name }}-summary.md
+          fi
+        
+      - name: Upload scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulnerability-report-${{ steps.safe-filename.outputs.safe_name }}
+          path: reports/
+          retention-days: 7
+        
+  summary-report:
+    name: Generate Summary Report
+    needs: scan-images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create output directory
+        run: mkdir -p reports
+      
+      - name: Download all scan results
+        uses: actions/download-artifact@v4
+        with:
+          path: reports/
+          
+      - name: Generate summary report
+        run: |
+          echo "# CKAN Docker Image Vulnerability Scan Summary" > summary.md
+          echo "" >> summary.md
+          echo "| Image | Critical | High | Medium | Low |" >> summary.md
+          echo "|-------|----------|------|--------|-----|" >> summary.md
+          
+          find reports -name "*.json" | while read jsonfile; do
+            if [ -f "$jsonfile" ]; then
+              # Extract safe filename from path
+              safe_name=$(basename "$jsonfile" .json)
+              
+              # Get original image name for display (from the summary file)
+              summary_file=$(dirname "$jsonfile")/"$safe_name"-summary.md
+              if [ -f "$summary_file" ]; then
+                image=$(head -n 1 "$summary_file" | sed 's/## Scan results for //')
+              else
+                image=$safe_name
+              fi
+              
+              critical=$(jq '[.vulnerabilities[] | select(.severity == "critical")] | length' "$jsonfile" 2>/dev/null || echo 0)
+              high=$(jq '[.vulnerabilities[] | select(.severity == "high")] | length' "$jsonfile" 2>/dev/null || echo 0)
+              medium=$(jq '[.vulnerabilities[] | select(.severity == "medium")] | length' "$jsonfile" 2>/dev/null || echo 0)
+              low=$(jq '[.vulnerabilities[] | select(.severity == "low")] | length' "$jsonfile" 2>/dev/null || echo 0)
+              
+              echo "| $image | $critical | $high | $medium | $low |" >> summary.md
+            fi
+          done
+          
+      - name: Upload summary report
+        uses: actions/upload-artifact@v4
+        with:
+          name: summary-report
+          path: summary.md
+          retention-days: 7
