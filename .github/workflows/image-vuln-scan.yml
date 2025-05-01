@@ -35,8 +35,7 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: ${{ matrix.image }}
-          #args: --report --org=kowh-ai  --project-name=${{ matrix.image }} --json-file-output=reports/${{ steps.safe-filename.outputs.safe_name }}.json
-          args: --report --org=kowh-ai  --project-name=${{ matrix.image }}
+          args: --report --org=kowh-ai  --project-name=${{ matrix.image }} --json-file-output=reports/${{ steps.safe-filename.outputs.safe_name }}.json
 
       - name: Pull Docker image
         run: docker pull ${{ matrix.image }}
