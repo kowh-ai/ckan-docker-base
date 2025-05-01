@@ -43,14 +43,11 @@ jobs:
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-          
-      # Test step complete: only scan without monitoring
-      # If you want to re-enable monitoring, uncomment the step below
       
-      # - name: Monitor Docker image
-      #   run: |
-      #     snyk container monitor ${{ matrix.docker-image }} \
-      #       --org=${{ secrets.SNYK_ORG }} \
-      #       --project-name=${{ matrix.docker-image }}
-      #   env:
-      #     SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      - name: Monitor Docker image
+        run: |
+          snyk container monitor ${{ matrix.docker-image }} \
+            --org=${{ secrets.SNYK_ORG }} \
+            --project-name=${{ matrix.docker-image }}
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
