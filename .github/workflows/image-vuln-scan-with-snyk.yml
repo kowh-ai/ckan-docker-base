@@ -4,12 +4,24 @@ on:
   schedule:
     # Run weekly on Monday at 9:00 AM
     - cron: '0 9 * * 1'
-  # Allow manual trigger of this workflow
+  # Allow manual trigger
   workflow_dispatch:
 
 jobs:
   snyk-docker-scan:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        docker-image:
+          - 'ckan/ckan-base:master'
+          - 'ckan/ckan-base:2.11'
+          - 'ckan/ckan-dev:2.11'
+          - 'ckan/ckan-base:2.10-py3.10'
+          - 'ckan/ckan-dev:2.10-py3.10'
+          - 'ckan/ckan-base-datapusher:1.0.1'
+      # Don't fail the entire workflow if one image scan fails
+      fail-fast: false
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -20,45 +32,25 @@ jobs:
       - name: Log in to Snyk
         run: snyk auth ${{ secrets.SNYK_TOKEN }}
         
-      # Scan the first Docker image
-      - name: Snyk scan first Docker image
+      # Scan the Docker image
+      - name: Snyk scan Docker image
         run: |
-          snyk container test ckan/ckan-base:2.11 \
+          snyk container test ${{ matrix.docker-image }} \
             --severity-threshold=high \
-            --file=Dockerfile \
             --app-vulns \
             --org=${{ secrets.SNYK_ORG }} \
-            --project-name=ckan-base-2.11
+            --project-name=${{ matrix.docker-image }}
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
           
-      # Scan the second Docker image
-      - name: Snyk scan second Docker image
-        run: |
-          snyk container test ckan/ckan-base:master \
-            --severity-threshold=high \
-            --file=Dockerfile \
-            --app-vulns \
-            --org=${{ secrets.SNYK_ORG }} \
-            --project-name=ckan-base-master
-        continue-on-error: true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-          
-      # Monitor the images in Snyk for ongoing vulnerability detection
-      - name: Monitor first Docker image
-        run: |
-          snyk container monitor ckan/ckan-base:2.11 \
-            --org=${{ secrets.SNYK_ORG }} \
-            --project-name=ckan-base-2.11
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-          
-      - name: Monitor second Docker image
-        run: |
-          snyk container monitor ckan/ckan-base:master \
-            --org=${{ secrets.SNYK_ORG }} \
-            --project-name=ckan-base-master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      # Test step complete: only scan without monitoring
+      # If you want to re-enable monitoring, uncomment the step below
+      
+      # - name: Monitor Docker image
+      #   run: |
+      #     snyk container monitor ${{ matrix.docker-image }} \
+      #       --org=${{ secrets.SNYK_ORG }} \
+      #       --project-name=${{ matrix.docker-image }}
+      #   env:
+      #     SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
