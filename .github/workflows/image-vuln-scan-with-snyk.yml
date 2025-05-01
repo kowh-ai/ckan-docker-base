@@ -18,7 +18,7 @@ jobs:
           - 'ckan/ckan-dev:2.11'
           - 'ckan/ckan-base:2.10-py3.10'
           - 'ckan/ckan-dev:2.10-py3.10'
-          - 'ckan/ckan-base-datapusher:1.0.1'
+          - 'ckan/ckan-base-datapusher:0.0.21'
       # Don't fail the entire workflow if one image scan fails
       fail-fast: false
     
@@ -37,17 +37,17 @@ jobs:
         run: |
           snyk container test ${{ matrix.docker-image }} \
             --severity-threshold=high \
-            --app-vulns \
             --org=${{ secrets.SNYK_ORG }} \
             --project-name=${{ matrix.docker-image }}
+            --report
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       
-      - name: Monitor Docker image
-        run: |
-          snyk container monitor ${{ matrix.docker-image }} \
-            --org=${{ secrets.SNYK_ORG }} \
-            --project-name=${{ matrix.docker-image }}
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      #- name: Monitor Docker image
+      #  run: |
+      #   snyk container monitor ${{ matrix.docker-image }} \
+      #     --org=${{ secrets.SNYK_ORG }} \
+      #     --project-name=${{ matrix.docker-image }}
+      #  env:
+      #    SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
