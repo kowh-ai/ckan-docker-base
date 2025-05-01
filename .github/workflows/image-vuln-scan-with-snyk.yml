@@ -38,7 +38,7 @@ jobs:
           snyk container test ${{ matrix.docker-image }} \
             --severity-threshold=high \
             --org=${{ secrets.SNYK_ORG }} \
-            --project-name=${{ matrix.docker-image }}
+            --project-name=${{ matrix.docker-image }} \
             --report
         continue-on-error: true
         env:
