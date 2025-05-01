@@ -35,7 +35,7 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           image: ${{ matrix.image }}
-          args: --report --json-file-output=reports/${{ steps.safe-filename.outputs.safe_name }}.json
+          args: --report --org=kowh-ai  --project-name=${{ matrix.image }} --json-file-output=reports/${{ steps.safe-filename.outputs.safe_name }}.json
 
       - name: Pull Docker image
         run: docker pull ${{ matrix.image }}
@@ -80,14 +80,7 @@ jobs:
           name: vulnerability-report-${{ steps.safe-filename.outputs.safe_name }}
           path: reports/
           retention-days: 7
-
-      - name: Upload Snyk report
-        uses: actions/upload-artifact@v4
-        with:
-          name: snyk-report
-          path: reports/
         
-
   summary-report:
     name: Generate Summary Report
     needs: scan-images
