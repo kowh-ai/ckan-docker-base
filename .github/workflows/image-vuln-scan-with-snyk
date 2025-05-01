@@ -4,7 +4,7 @@ on:
   schedule:
     # Run weekly on Monday at 9:00 AM
     - cron: '0 9 * * 1'
-  # Allow manual trigger
+  # Allow manual trigger of this workflow
   workflow_dispatch:
 
 jobs:
